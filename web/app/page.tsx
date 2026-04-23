@@ -41,7 +41,7 @@ function CrowImage() {
     if (!ctx) return;
 
     const img = new window.Image();
-    img.src = "/corvo.png";
+    img.src = "/corvo3.png";
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
@@ -121,7 +121,7 @@ export default function Home() {
     setResult(null);
 
     try {
-      const res = await fetch("http://localhost:5173/api/scan", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "https://kraak-production.up.railway.app"}/api/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName, content }),
