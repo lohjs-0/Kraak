@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Kraak.API/Kraak.API.csproj" />
+    <Project Path="src/Kraak.CLI/Kraak.CLI.csproj" />
+    <Project Path="src/Kraak.Core/Kraak.Core.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,73 @@
+# ============================================
+# .NET
+# ============================================
+**/bin/
+**/obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+[Xx]64/
+[Xx]86/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# Publish output
+**/publish/
+
+# ============================================
+# Configurações sensíveis
+# ============================================
+**/appsettings.Development.json
+**/appsettings.*.json
+!**/appsettings.json
+
+# Secrets
+**/secrets.json
+**/*.pfx
+**/*.key
+
+# HTTP client (gerado pelo VS/Rider)
+**/*.http
+
+# ============================================
+# Frontend (web - Next.js)
+# ============================================
+web/node_modules/
+web/.next/
+web/out/
+web/.env
+web/.env.local
+web/.env.development.local
+web/.env.test.local
+web/.env.production.local
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+
+# ============================================
+# IDEs e Editores
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============================================
+# OS
+# ============================================
+.DS_Store
+Thumbs.db
+desktop.ini
