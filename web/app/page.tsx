@@ -74,7 +74,6 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [editorHeight, setEditorHeight] = useState(280);
 
-  // Ajusta altura do editor conforme tela
   useEffect(() => {
     const update = () => {
       setEditorHeight(window.innerWidth < 640 ? 200 : 320);
@@ -136,6 +135,13 @@ export default function Home() {
     }
   };
 
+  const handleClear = () => {
+    setContent("");
+    setResult(null);
+    setFileName("appsettings.json");
+    setError("");
+  };
+
   const handleExport = () => {
     if (!result) return;
     const report = {
@@ -173,23 +179,18 @@ export default function Home() {
           <div className="flex items-center gap-3 sm:gap-6 w-full justify-center">
             <CrowImage />
             <div className="min-w-0">
-              {/* ASCII art — esconde em telas muito pequenas, mostra em sm+ */}
               <pre className="hidden sm:block text-green-400 text-[10px] md:text-xs leading-tight whitespace-pre overflow-x-auto">{` __  ___ .______          ___           ___       __  ___ 
 |  |/  / |   _  \\        /   \\         /   \\     |  |/  / 
 |  '  /  |  |_)  |      /  ^  \\       /  ^  \\    |  '  /  
 |    <   |      /      /  /_\\  \\     /  /_\\  \\   |    <   
 |  .  \\  |  |\\  \\----./  _____  \\   /  _____  \\  |  .  \\  
 |__|\\__\\ | _| \`._____/__/     \\__\\ /__/     \\__\\ |__|\\__\\ `}</pre>
-              {/* Título simples para mobile */}
               <div className="sm:hidden text-green-400 text-2xl font-bold tracking-widest">
                 KRAAK
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
                 <p className="text-zinc-500 text-xs sm:text-sm">Security Analyzer · v0.1.0</p>
-                <Link
-                  href="/docs"
-                  className="text-zinc-500 text-xs sm:text-sm hover:text-green-400 transition-colors"
-                >
+                <Link href="/docs" className="text-zinc-500 text-xs sm:text-sm hover:text-green-400 transition-colors">
                   Documentação →
                 </Link>
               </div>
@@ -203,9 +204,7 @@ export default function Home() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           className={`mb-4 border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors cursor-pointer ${
-            dragging
-              ? "border-green-400 bg-green-950/20"
-              : "border-zinc-700 hover:border-zinc-500"
+            dragging ? "border-green-400 bg-green-950/20" : "border-zinc-700 hover:border-zinc-500"
           }`}
           onClick={() => document.getElementById("fileInput")?.click()}
         >
@@ -217,14 +216,11 @@ export default function Home() {
             onChange={handleFileInput}
           />
           <p className="text-zinc-400 text-sm">
-            {dragging
-              ? "📂 Solte o arquivo aqui!"
-              : "📂 Toque para selecionar um arquivo"}
+            {dragging ? "📂 Solte o arquivo aqui!" : "📂 Toque para selecionar um arquivo"}
           </p>
           <p className="text-zinc-600 text-xs mt-1 hidden sm:block">
             appsettings.json · .env · .env.local · .env.production · docker-compose.yml
           </p>
-          {/* Chips de formatos no mobile */}
           <div className="flex flex-wrap gap-1 justify-center mt-2 sm:hidden">
             {["appsettings.json", ".env", ".env.local", "docker-compose.yml"].map(f => (
               <span key={f} className="text-zinc-600 text-[10px] bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
@@ -241,7 +237,7 @@ export default function Home() {
         <div className="mb-3 flex items-center gap-3">
           <label className="text-zinc-400 text-sm shrink-0">Arquivo:</label>
           <select
-            className="bg-zinc-900 border border-zinc-700 text-white text-sm rounded px-3 py-1 flex-1 min-w-0 truncate"
+            className="bg-zinc-900 border border-zinc-700 text-white text-sm rounded px-3 py-1 flex-1 min-w-0"
             value={fileName}
             onChange={e => setFileName(e.target.value)}
           >
@@ -274,7 +270,7 @@ export default function Home() {
         </div>
 
         {/* Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex gap-3 mb-6">
           <button
             onClick={handleScan}
             disabled={loading || !content.trim()}
@@ -282,12 +278,19 @@ export default function Home() {
           >
             {loading ? "Analisando..." : "Analisar com Kraak"}
           </button>
+          <button
+            onClick={handleClear}
+            disabled={!content.trim()}
+            className="py-3 px-5 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-700 text-white font-bold rounded-lg transition-colors border border-zinc-600 text-sm"
+          >
+            🗑️
+          </button>
           {result && (
             <button
               onClick={handleExport}
               className="py-3 px-5 sm:px-6 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white font-bold rounded-lg transition-colors border border-zinc-600 text-sm sm:text-base"
             >
-              📥 Exportar JSON
+              📥
             </button>
           )}
         </div>
@@ -302,21 +305,14 @@ export default function Home() {
         {/* Results */}
         {result !== null && (
           <div>
-            {/* Score */}
             <div className="mb-4 bg-zinc-900 border border-zinc-800 rounded-lg p-4 sm:p-6 flex items-center justify-between">
               <div>
                 <div className="text-zinc-400 text-xs sm:text-sm mb-1">Score de Segurança</div>
-                <div
-                  className={`text-3xl sm:text-4xl font-bold ${
-                    result.score >= 80
-                      ? "text-green-400"
-                      : result.score >= 50
-                      ? "text-yellow-400"
-                      : "text-red-500"
-                  }`}
-                >
-                  {result.score}
-                  <span className="text-zinc-600 text-xl sm:text-2xl">/100</span>
+                <div className={`text-3xl sm:text-4xl font-bold ${
+                  result.score >= 80 ? "text-green-400" :
+                  result.score >= 50 ? "text-yellow-400" : "text-red-500"
+                }`}>
+                  {result.score}<span className="text-zinc-600 text-xl sm:text-2xl">/100</span>
                 </div>
               </div>
               <div className="text-4xl sm:text-6xl">
@@ -324,7 +320,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Summary cards */}
             <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 sm:p-4 text-center">
                 <div className="text-xl sm:text-2xl font-bold text-white">{findings!.length}</div>
@@ -340,7 +335,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Findings */}
             {findings!.length === 0 ? (
               <div className="bg-green-950 border border-green-700 text-green-400 rounded-lg p-4 sm:p-6 text-center text-sm">
                 ✅ Nenhum problema encontrado!
@@ -348,17 +342,9 @@ export default function Home() {
             ) : (
               <div className="flex flex-col gap-3">
                 {findings!.map((f, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-lg border p-3 sm:p-4 ${SEVERITY_BG[f.severity]} ${
-                      SEVERITY_COLOR[f.severity].split(" ")[1]
-                    }`}
-                  >
-                    {/* Badge row */}
+                  <div key={i} className={`rounded-lg border p-3 sm:p-4 ${SEVERITY_BG[f.severity]} ${SEVERITY_COLOR[f.severity].split(" ")[1]}`}>
                     <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span
-                        className={`text-[10px] sm:text-xs font-bold border px-2 py-0.5 rounded shrink-0 ${SEVERITY_COLOR[f.severity]}`}
-                      >
+                      <span className={`text-[10px] sm:text-xs font-bold border px-2 py-0.5 rounded shrink-0 ${SEVERITY_COLOR[f.severity]}`}>
                         {SEVERITY_LABEL[f.severity]}
                       </span>
                       <span className="text-zinc-400 text-[10px] sm:text-xs shrink-0">{f.ruleId}</span>
