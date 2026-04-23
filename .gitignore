@@ -29,9 +29,9 @@ packages/
 # ============================================
 # Configurações sensíveis
 # ============================================
-**/appsettings.Development.json
-**/appsettings.*.json
-!**/appsettings.json
+# API configs
+src/Kraak.API/appsettings.json
+src/Kraak.API/appsettings.Development.json
 
 # Secrets
 **/secrets.json
