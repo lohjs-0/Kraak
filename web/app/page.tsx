@@ -80,6 +80,8 @@ function CrowImage() {
 export default function Home() {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [manualFileName, setManualFileName] = useState(".env");
+  const [manualContent, setManualContent] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -146,8 +148,20 @@ export default function Home() {
     return "plaintext";
   };
 
+  // Arquivos a enviar: os carregados + o manual se tiver conteúdo
+  const allFilesToScan = (): FileEntry[] => {
+    const loaded = files;
+    if (manualContent.trim() && !files.find(f => f.fileName === manualFileName)) {
+      return [...loaded, { fileName: manualFileName, content: manualContent }];
+    }
+    return loaded;
+  };
+
+  const canScan = allFilesToScan().length > 0;
+
   const handleScan = async () => {
-    if (files.length === 0) return;
+    const toScan = allFilesToScan();
+    if (toScan.length === 0) return;
     setLoading(true);
     setError("");
     setResult(null);
@@ -158,7 +172,7 @@ export default function Home() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(files),
+          body: JSON.stringify(toScan),
         }
       );
       if (!res.ok) throw new Error("Erro na API");
@@ -174,6 +188,8 @@ export default function Home() {
   const handleClear = () => {
     setFiles([]);
     setActiveFile(null);
+    setManualContent("");
+    setManualFileName(".env");
     setResult(null);
     setError("");
   };
@@ -182,7 +198,7 @@ export default function Home() {
     if (!result) return;
     const report = {
       generatedAt: new Date().toISOString(),
-      files: files.map(f => f.fileName),
+      files: allFilesToScan().map(f => f.fileName),
       score: result.score,
       summary: { total: findings!.length, critical: criticals, warning: warnings },
       findings: result.findings,
@@ -214,7 +230,7 @@ export default function Home() {
               <div className="sm:hidden text-green-400 text-2xl font-bold tracking-widest">KRAAK</div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
                 <p className="text-zinc-500 text-xs sm:text-sm">Security Analyzer · v0.1.0</p>
-                <Link href="/docs" className="text-zinc-500 text-xs sm:text-sm hover:text-green-400 transition-colors">
+                <Link href="/docs" className="text-zinc-500 text-xs sm:text-sm hover:text-green-400 transition-colors cursor-pointer">
                   Documentação →
                 </Link>
               </div>
@@ -262,7 +278,7 @@ export default function Home() {
               <button
                 key={f.fileName}
                 onClick={() => setActiveFile(f.fileName)}
-                className={`flex items-center gap-1 text-xs px-3 py-1 rounded-full border transition-colors ${
+                className={`flex items-center gap-1 text-xs px-3 py-1 rounded-full border transition-colors cursor-pointer ${
                   activeFile === f.fileName
                     ? "border-green-400 text-green-400 bg-green-950/30"
                     : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
@@ -271,7 +287,7 @@ export default function Home() {
                 {f.fileName}
                 <span
                   onClick={e => { e.stopPropagation(); handleRemoveFile(f.fileName); }}
-                  className="ml-1 text-zinc-600 hover:text-red-400 transition-colors"
+                  className="ml-1 text-zinc-600 hover:text-red-400 transition-colors cursor-pointer"
                 >
                   ×
                 </span>
@@ -280,7 +296,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Editor */}
+        {/* Editor — arquivo carregado */}
         {activeEntry && (
           <div className="rounded-lg overflow-hidden border border-zinc-800 mb-4">
             <div className="bg-zinc-900 px-3 py-1.5 text-xs text-zinc-500 border-b border-zinc-800">
@@ -303,26 +319,57 @@ export default function Home() {
           </div>
         )}
 
+        {/* Editor manual — quando não há arquivo ativo */}
+        {!activeEntry && (
+          <div className="rounded-lg overflow-hidden border border-zinc-800 mb-4">
+            <div className="bg-zinc-900 px-3 py-1.5 border-b border-zinc-800 flex items-center gap-2">
+              <span className="text-zinc-500 text-xs shrink-0">Arquivo:</span>
+              <input
+                type="text"
+                value={manualFileName}
+                onChange={e => setManualFileName(e.target.value)}
+                placeholder=".env"
+                className="bg-transparent text-xs text-zinc-300 outline-none flex-1 min-w-0 placeholder-zinc-700"
+              />
+            </div>
+            <Editor
+              height={`${editorHeight}px`}
+              language={getLanguage(manualFileName)}
+              theme="vs-dark"
+              value={manualContent}
+              onChange={v => setManualContent(v ?? "")}
+              options={{
+                fontSize: 12,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                lineNumbers: "on",
+                wordWrap: "on",
+                placeholder: "Cole ou digite o conteúdo do arquivo aqui...",
+              }}
+            />
+          </div>
+        )}
+
         {/* Buttons */}
         <div className="flex gap-3 mb-6">
           <button
             onClick={handleScan}
-            disabled={loading || files.length === 0}
-            className="flex-1 py-3 bg-green-500 hover:bg-green-400 active:bg-green-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-black font-bold rounded-lg transition-colors text-sm sm:text-base"
+            disabled={loading || !canScan}
+            className="flex-1 py-3 bg-green-500 hover:bg-green-400 active:bg-green-600 disabled:bg-zinc-700 disabled:text-zinc-500 disabled:cursor-not-allowed text-black font-bold rounded-lg transition-colors text-sm sm:text-base cursor-pointer"
           >
-            {loading ? "Analisando..." : `Analisar com Kraak${files.length > 1 ? ` (${files.length} arquivos)` : ""}`}
+            {loading ? "Analisando..." : `Analisar com Kraak${allFilesToScan().length > 1 ? ` (${allFilesToScan().length} arquivos)` : ""}`}
           </button>
           <button
             onClick={handleClear}
-            disabled={files.length === 0}
-            className="py-3 px-5 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-700 text-white font-bold rounded-lg transition-colors border border-zinc-600 text-sm"
+            disabled={!canScan && !manualContent}
+            className="py-3 px-5 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-700 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors border border-zinc-600 text-sm cursor-pointer"
           >
             🗑️
           </button>
           {result && (
             <button
               onClick={handleExport}
-              className="py-3 px-5 sm:px-6 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white font-bold rounded-lg transition-colors border border-zinc-600 text-sm sm:text-base"
+              className="py-3 px-5 sm:px-6 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white font-bold rounded-lg transition-colors border border-zinc-600 text-sm sm:text-base cursor-pointer"
             >
               📥
             </button>
