@@ -56,7 +56,13 @@ function CrowImage() {
     };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 80, height: 80, imageRendering: "pixelated" }} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20"
+      style={{ imageRendering: "pixelated" }}
+    />
+  );
 }
 
 export default function Home() {
@@ -66,6 +72,17 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [editorHeight, setEditorHeight] = useState(280);
+
+  // Ajusta altura do editor conforme tela
+  useEffect(() => {
+    const update = () => {
+      setEditorHeight(window.innerWidth < 640 ? 200 : 320);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   const findings = result?.findings ?? null;
   const criticals = findings?.filter(f => f.severity === 2).length ?? 0;
@@ -148,23 +165,31 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0d0d0d] text-white font-mono p-8">
-      <div className="max-w-5xl mx-auto">
+    <main className="min-h-screen bg-[#0d0d0d] text-white font-mono">
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
 
         {/* Header */}
-        <div className="mb-8 flex flex-col items-center gap-4">
-          <div className="flex items-center gap-6">
+        <div className="mb-6 sm:mb-8 flex flex-col items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-6 w-full justify-center">
             <CrowImage />
-            <div>
-              <pre className="text-green-400 text-xs leading-tight whitespace-pre">{` __  ___ .______          ___           ___       __  ___ 
+            <div className="min-w-0">
+              {/* ASCII art — esconde em telas muito pequenas, mostra em sm+ */}
+              <pre className="hidden sm:block text-green-400 text-[10px] md:text-xs leading-tight whitespace-pre overflow-x-auto">{` __  ___ .______          ___           ___       __  ___ 
 |  |/  / |   _  \\        /   \\         /   \\     |  |/  / 
 |  '  /  |  |_)  |      /  ^  \\       /  ^  \\    |  '  /  
 |    <   |      /      /  /_\\  \\     /  /_\\  \\   |    <   
 |  .  \\  |  |\\  \\----./  _____  \\   /  _____  \\  |  .  \\  
 |__|\\__\\ | _| \`._____/__/     \\__\\ /__/     \\__\\ |__|\\__\\ `}</pre>
-              <div className="flex items-center gap-4 mt-1">
-                <p className="text-zinc-500 text-sm">Security Analyzer · v0.1.0</p>
-                <Link href="/docs" className="text-zinc-500 text-sm hover:text-green-400 transition-colors">
+              {/* Título simples para mobile */}
+              <div className="sm:hidden text-green-400 text-2xl font-bold tracking-widest">
+                KRAAK
+              </div>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
+                <p className="text-zinc-500 text-xs sm:text-sm">Security Analyzer · v0.1.0</p>
+                <Link
+                  href="/docs"
+                  className="text-zinc-500 text-xs sm:text-sm hover:text-green-400 transition-colors"
+                >
                   Documentação →
                 </Link>
               </div>
@@ -177,8 +202,10 @@ export default function Home() {
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          className={`mb-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-            dragging ? "border-green-400 bg-green-950/20" : "border-zinc-700 hover:border-zinc-500"
+          className={`mb-4 border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors cursor-pointer ${
+            dragging
+              ? "border-green-400 bg-green-950/20"
+              : "border-zinc-700 hover:border-zinc-500"
           }`}
           onClick={() => document.getElementById("fileInput")?.click()}
         >
@@ -190,11 +217,21 @@ export default function Home() {
             onChange={handleFileInput}
           />
           <p className="text-zinc-400 text-sm">
-            {dragging ? "📂 Solte o arquivo aqui!" : "📂 Arraste um arquivo aqui ou clique para selecionar"}
+            {dragging
+              ? "📂 Solte o arquivo aqui!"
+              : "📂 Toque para selecionar um arquivo"}
           </p>
-          <p className="text-zinc-600 text-xs mt-1">
+          <p className="text-zinc-600 text-xs mt-1 hidden sm:block">
             appsettings.json · .env · .env.local · .env.production · docker-compose.yml
           </p>
+          {/* Chips de formatos no mobile */}
+          <div className="flex flex-wrap gap-1 justify-center mt-2 sm:hidden">
+            {["appsettings.json", ".env", ".env.local", "docker-compose.yml"].map(f => (
+              <span key={f} className="text-zinc-600 text-[10px] bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
+                {f}
+              </span>
+            ))}
+          </div>
           {fileName && content && (
             <p className="text-green-400 text-xs mt-2">✅ {fileName} carregado</p>
           )}
@@ -202,9 +239,9 @@ export default function Home() {
 
         {/* File name select */}
         <div className="mb-3 flex items-center gap-3">
-          <label className="text-zinc-400 text-sm">Arquivo:</label>
+          <label className="text-zinc-400 text-sm shrink-0">Arquivo:</label>
           <select
-            className="bg-zinc-900 border border-zinc-700 text-white text-sm rounded px-3 py-1"
+            className="bg-zinc-900 border border-zinc-700 text-white text-sm rounded px-3 py-1 flex-1 min-w-0 truncate"
             value={fileName}
             onChange={e => setFileName(e.target.value)}
           >
@@ -221,33 +258,34 @@ export default function Home() {
         {/* Editor */}
         <div className="rounded-lg overflow-hidden border border-zinc-800 mb-4">
           <Editor
-            height="320px"
+            height={`${editorHeight}px`}
             language={getLanguage()}
             theme="vs-dark"
             value={content}
             onChange={v => setContent(v ?? "")}
             options={{
-              fontSize: 13,
+              fontSize: 12,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               lineNumbers: "on",
+              wordWrap: "on",
             }}
           />
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <button
             onClick={handleScan}
             disabled={loading || !content.trim()}
-            className="flex-1 py-3 bg-green-500 hover:bg-green-400 disabled:bg-zinc-700 disabled:text-zinc-500 text-black font-bold rounded-lg transition-colors"
+            className="flex-1 py-3 bg-green-500 hover:bg-green-400 active:bg-green-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-black font-bold rounded-lg transition-colors text-sm sm:text-base"
           >
             {loading ? "Analisando..." : "Analisar com Kraak"}
           </button>
           {result && (
             <button
               onClick={handleExport}
-              className="py-3 px-6 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-lg transition-colors border border-zinc-600"
+              className="py-3 px-5 sm:px-6 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white font-bold rounded-lg transition-colors border border-zinc-600 text-sm sm:text-base"
             >
               📥 Exportar JSON
             </button>
@@ -256,7 +294,7 @@ export default function Home() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-950 border border-red-500 text-red-400 rounded-lg p-4 mb-4 text-sm">
+          <div className="bg-red-950 border border-red-500 text-red-400 rounded-lg p-4 mb-4 text-xs sm:text-sm">
             {error}
           </div>
         )}
@@ -264,57 +302,74 @@ export default function Home() {
         {/* Results */}
         {result !== null && (
           <div>
-            <div className="mb-4 bg-zinc-900 border border-zinc-800 rounded-lg p-6 flex items-center justify-between">
+            {/* Score */}
+            <div className="mb-4 bg-zinc-900 border border-zinc-800 rounded-lg p-4 sm:p-6 flex items-center justify-between">
               <div>
-                <div className="text-zinc-400 text-sm mb-1">Score de Segurança</div>
-                <div className={`text-4xl font-bold ${
-                  result.score >= 80 ? "text-green-400" :
-                  result.score >= 50 ? "text-yellow-400" : "text-red-500"
-                }`}>
-                  {result.score}<span className="text-zinc-600 text-2xl">/100</span>
+                <div className="text-zinc-400 text-xs sm:text-sm mb-1">Score de Segurança</div>
+                <div
+                  className={`text-3xl sm:text-4xl font-bold ${
+                    result.score >= 80
+                      ? "text-green-400"
+                      : result.score >= 50
+                      ? "text-yellow-400"
+                      : "text-red-500"
+                  }`}
+                >
+                  {result.score}
+                  <span className="text-zinc-600 text-xl sm:text-2xl">/100</span>
                 </div>
               </div>
-              <div className="text-6xl">
+              <div className="text-4xl sm:text-6xl">
                 {result.score >= 80 ? "🛡️" : result.score >= 50 ? "⚠️" : "💀"}
               </div>
             </div>
 
-            <div className="flex gap-4 mb-4">
-              <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-white">{findings!.length}</div>
-                <div className="text-zinc-500 text-xs mt-1">Total</div>
+            {/* Summary cards */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 sm:p-4 text-center">
+                <div className="text-xl sm:text-2xl font-bold text-white">{findings!.length}</div>
+                <div className="text-zinc-500 text-[10px] sm:text-xs mt-1">Total</div>
               </div>
-              <div className="flex-1 bg-red-950 border border-red-800 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-red-400">{criticals}</div>
-                <div className="text-zinc-500 text-xs mt-1">Críticos</div>
+              <div className="bg-red-950 border border-red-800 rounded-lg p-3 sm:p-4 text-center">
+                <div className="text-xl sm:text-2xl font-bold text-red-400">{criticals}</div>
+                <div className="text-zinc-500 text-[10px] sm:text-xs mt-1">Críticos</div>
               </div>
-              <div className="flex-1 bg-yellow-950 border border-yellow-800 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-yellow-400">{warnings}</div>
-                <div className="text-zinc-500 text-xs mt-1">Warnings</div>
+              <div className="bg-yellow-950 border border-yellow-800 rounded-lg p-3 sm:p-4 text-center">
+                <div className="text-xl sm:text-2xl font-bold text-yellow-400">{warnings}</div>
+                <div className="text-zinc-500 text-[10px] sm:text-xs mt-1">Warnings</div>
               </div>
             </div>
 
+            {/* Findings */}
             {findings!.length === 0 ? (
-              <div className="bg-green-950 border border-green-700 text-green-400 rounded-lg p-6 text-center">
+              <div className="bg-green-950 border border-green-700 text-green-400 rounded-lg p-4 sm:p-6 text-center text-sm">
                 ✅ Nenhum problema encontrado!
               </div>
             ) : (
               <div className="flex flex-col gap-3">
                 {findings!.map((f, i) => (
-                  <div key={i} className={`rounded-lg border p-4 ${SEVERITY_BG[f.severity]} ${SEVERITY_COLOR[f.severity].split(" ")[1]}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-xs font-bold border px-2 py-0.5 rounded ${SEVERITY_COLOR[f.severity]}`}>
+                  <div
+                    key={i}
+                    className={`rounded-lg border p-3 sm:p-4 ${SEVERITY_BG[f.severity]} ${
+                      SEVERITY_COLOR[f.severity].split(" ")[1]
+                    }`}
+                  >
+                    {/* Badge row */}
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span
+                        className={`text-[10px] sm:text-xs font-bold border px-2 py-0.5 rounded shrink-0 ${SEVERITY_COLOR[f.severity]}`}
+                      >
                         {SEVERITY_LABEL[f.severity]}
                       </span>
-                      <span className="text-zinc-400 text-xs">{f.ruleId}</span>
-                      <span className="font-bold text-sm text-white">{f.title}</span>
+                      <span className="text-zinc-400 text-[10px] sm:text-xs shrink-0">{f.ruleId}</span>
+                      <span className="font-bold text-xs sm:text-sm text-white break-words">{f.title}</span>
                     </div>
-                    <p className="text-zinc-300 text-sm mb-2">{f.description}</p>
-                    <code className="text-xs bg-black/40 rounded px-2 py-1 block text-zinc-400 truncate mb-2">
+                    <p className="text-zinc-300 text-xs sm:text-sm mb-2">{f.description}</p>
+                    <code className="text-[10px] sm:text-xs bg-black/40 rounded px-2 py-1 block text-zinc-400 truncate mb-2">
                       🔎 {f.lineContent}
                     </code>
                     {f.suggestion && (
-                      <div className="text-xs bg-black/30 rounded px-3 py-2 text-green-400 border border-green-900">
+                      <div className="text-[10px] sm:text-xs bg-black/30 rounded px-3 py-2 text-green-400 border border-green-900 break-words">
                         💡 {f.suggestion}
                       </div>
                     )}
