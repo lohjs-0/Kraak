@@ -25,6 +25,7 @@ scanner.RegisterRule(new EnvGitignoreRule());
 scanner.RegisterRule(new HttpsRule());
 scanner.RegisterRule(new DebugModeRule());
 scanner.RegisterRule(new EnvSecretsRule());
+scanner.RegisterRule(new EntropyRule());
 
 Console.WriteLine($"🔍 Analisando: {filePath}\n");
 

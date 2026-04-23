@@ -4,6 +4,7 @@ using Kraak.Core.Models;
 using Kraak.Core.Rules.AppSettings;
 using Kraak.Core.Rules.DotEnv;
 using Kraak.Core.Rules.Docker;
+using Kraak.Core.Rules.AppSettings;
 
 namespace Kraak.API.Controllers;
 
@@ -21,6 +22,7 @@ public class ScanController : ControllerBase
         ["KRK006"] = "Use 'Warning' ou 'Error' como nível de log em produção. Nunca suba 'Development' para produção.",
         ["KRK007"] = "Use variáveis de ambiente do servidor ou um cofre como AWS Secrets Manager ou Azure Key Vault.",
         ["KRK008"] = "Use variáveis de ambiente do host ou Docker Secrets. Nunca coloque senhas direto no docker-compose.yml.",
+        ["KRK009"] = "Esta string tem alta entropia e pode ser um secret. Mova para variáveis de ambiente se for uma chave ou senha.",
     };
 
     [HttpPost]
@@ -41,6 +43,7 @@ public class ScanController : ControllerBase
         scanner.RegisterRule(new DebugModeRule());
         scanner.RegisterRule(new EnvSecretsRule());
         scanner.RegisterRule(new DockerRule());
+        scanner.RegisterRule(new EntropyRule());
 
         var findings = scanner.Scan(tempPath).ToList();
         System.IO.File.Delete(tempPath);
