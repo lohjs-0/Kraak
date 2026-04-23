@@ -19,16 +19,29 @@ interface ScanResult {
   score: number;
 }
 
+interface FileEntry {
+  fileName: string;
+  content: string;
+}
+
 const SEVERITY_LABEL = ["INFO", "WARNING", "CRITICAL"];
 const SEVERITY_COLOR = [
   "text-cyan-400 border-cyan-400",
   "text-yellow-400 border-yellow-400",
   "text-red-500 border-red-500",
 ];
-const SEVERITY_BG = [
-  "bg-cyan-950",
-  "bg-yellow-950",
-  "bg-red-950",
+const SEVERITY_BG = ["bg-cyan-950", "bg-yellow-950", "bg-red-950"];
+
+const ACCEPTED_FILES = [
+  "appsettings.json",
+  "appsettings.Production.json",
+  ".env",
+  ".env.local",
+  ".env.production",
+  ".env.development",
+  "docker-compose.yml",
+  "docker-compose.prod.yml",
+  ".gitignore",
 ];
 
 function CrowImage() {
@@ -39,7 +52,6 @@ function CrowImage() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     const img = new window.Image();
     img.src = "/corvo.png";
     img.onload = () => {
@@ -66,8 +78,8 @@ function CrowImage() {
 }
 
 export default function Home() {
-  const [fileName, setFileName] = useState("appsettings.json");
-  const [content, setContent] = useState("");
+  const [files, setFiles] = useState<FileEntry[]>([]);
+  const [activeFile, setActiveFile] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -75,9 +87,7 @@ export default function Home() {
   const [editorHeight, setEditorHeight] = useState(280);
 
   useEffect(() => {
-    const update = () => {
-      setEditorHeight(window.innerWidth < 640 ? 200 : 320);
-    };
+    const update = () => setEditorHeight(window.innerWidth < 640 ? 200 : 320);
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
@@ -87,44 +97,70 @@ export default function Home() {
   const criticals = findings?.filter(f => f.severity === 2).length ?? 0;
   const warnings = findings?.filter(f => f.severity === 1).length ?? 0;
 
-  const handleFile = useCallback((file: File) => {
-    setFileName(file.name);
+  const addFile = useCallback((file: File) => {
     const reader = new FileReader();
-    reader.onload = e => setContent(e.target?.result as string ?? "");
+    reader.onload = e => {
+      const content = e.target?.result as string ?? "";
+      setFiles(prev => {
+        const exists = prev.findIndex(f => f.fileName === file.name);
+        if (exists >= 0) {
+          const updated = [...prev];
+          updated[exists] = { fileName: file.name, content };
+          return updated;
+        }
+        return [...prev, { fileName: file.name, content }];
+      });
+      setActiveFile(file.name);
+    };
     reader.readAsText(file);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }, [handleFile]);
+    Array.from(e.dataTransfer.files).forEach(addFile);
+  }, [addFile]);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(true);
-  };
-
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true); };
   const handleDragLeave = () => setDragging(false);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    Array.from(e.target.files ?? []).forEach(addFile);
+    e.target.value = "";
+  };
+
+  const handleRemoveFile = (fileName: string) => {
+    setFiles(prev => prev.filter(f => f.fileName !== fileName));
+    setActiveFile(prev => prev === fileName ? null : prev);
+  };
+
+  const activeEntry = files.find(f => f.fileName === activeFile);
+
+  const updateActiveContent = (content: string) => {
+    setFiles(prev => prev.map(f => f.fileName === activeFile ? { ...f, content } : f));
+  };
+
+  const getLanguage = (fileName: string) => {
+    if (fileName.endsWith(".json")) return "json";
+    if (fileName.endsWith(".yml") || fileName.endsWith(".yaml")) return "yaml";
+    return "plaintext";
   };
 
   const handleScan = async () => {
-    if (!content.trim()) return;
+    if (files.length === 0) return;
     setLoading(true);
     setError("");
     setResult(null);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "https://kraak-production.up.railway.app"}/api/scan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName, content }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? "https://kraak-production.up.railway.app"}/api/scan`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(files),
+        }
+      );
       if (!res.ok) throw new Error("Erro na API");
       const data = await res.json();
       setResult(data);
@@ -136,9 +172,9 @@ export default function Home() {
   };
 
   const handleClear = () => {
-    setContent("");
+    setFiles([]);
+    setActiveFile(null);
     setResult(null);
-    setFileName("appsettings.json");
     setError("");
   };
 
@@ -146,28 +182,18 @@ export default function Home() {
     if (!result) return;
     const report = {
       generatedAt: new Date().toISOString(),
-      file: fileName,
+      files: files.map(f => f.fileName),
       score: result.score,
-      summary: {
-        total: findings!.length,
-        critical: criticals,
-        warning: warnings,
-      },
+      summary: { total: findings!.length, critical: criticals, warning: warnings },
       findings: result.findings,
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `kraak-report-${fileName}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `kraak-report-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const getLanguage = () => {
-    if (fileName.endsWith(".json")) return "json";
-    if (fileName.endsWith(".yml") || fileName.endsWith(".yaml")) return "yaml";
-    return "plaintext";
   };
 
   return (
@@ -185,9 +211,7 @@ export default function Home() {
 |    <   |      /      /  /_\\  \\     /  /_\\  \\   |    <   
 |  .  \\  |  |\\  \\----./  _____  \\   /  _____  \\  |  .  \\  
 |__|\\__\\ | _| \`._____/__/     \\__\\ /__/     \\__\\ |__|\\__\\ `}</pre>
-              <div className="sm:hidden text-green-400 text-2xl font-bold tracking-widest">
-                KRAAK
-              </div>
+              <div className="sm:hidden text-green-400 text-2xl font-bold tracking-widest">KRAAK</div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
                 <p className="text-zinc-500 text-xs sm:text-sm">Security Analyzer · v0.1.0</p>
                 <Link href="/docs" className="text-zinc-500 text-xs sm:text-sm hover:text-green-400 transition-colors">
@@ -212,75 +236,85 @@ export default function Home() {
             id="fileInput"
             type="file"
             className="hidden"
-            accept=".json,.env,.env.local,.env.production,.yml,.yaml"
+            multiple
+            accept=".json,.env,.env.local,.env.production,.env.development,.yml,.yaml,.gitignore"
             onChange={handleFileInput}
           />
           <p className="text-zinc-400 text-sm">
-            {dragging ? "📂 Solte o arquivo aqui!" : "📂 Toque para selecionar um arquivo"}
+            {dragging ? "📂 Solte os arquivos aqui!" : "📂 Toque para selecionar arquivos"}
           </p>
           <p className="text-zinc-600 text-xs mt-1 hidden sm:block">
-            appsettings.json · .env · .env.local · .env.production · docker-compose.yml
+            Você pode carregar múltiplos arquivos — ex: .env + .gitignore juntos
           </p>
-          <div className="flex flex-wrap gap-1 justify-center mt-2 sm:hidden">
-            {["appsettings.json", ".env", ".env.local", "docker-compose.yml"].map(f => (
+          <div className="flex flex-wrap gap-1 justify-center mt-2">
+            {ACCEPTED_FILES.map(f => (
               <span key={f} className="text-zinc-600 text-[10px] bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
                 {f}
               </span>
             ))}
           </div>
-          {fileName && content && (
-            <p className="text-green-400 text-xs mt-2">✅ {fileName} carregado</p>
-          )}
         </div>
 
-        {/* File name select */}
-        <div className="mb-3 flex items-center gap-3">
-          <label className="text-zinc-400 text-sm shrink-0">Arquivo:</label>
-          <select
-            className="bg-zinc-900 border border-zinc-700 text-white text-sm rounded px-3 py-1 flex-1 min-w-0"
-            value={fileName}
-            onChange={e => setFileName(e.target.value)}
-          >
-            <option value="appsettings.json">appsettings.json</option>
-            <option value="appsettings.Production.json">appsettings.Production.json</option>
-            <option value=".env">.env</option>
-            <option value=".env.local">.env.local</option>
-            <option value=".env.production">.env.production</option>
-            <option value="docker-compose.yml">docker-compose.yml</option>
-            <option value="docker-compose.prod.yml">docker-compose.prod.yml</option>
-          </select>
-        </div>
+        {/* Arquivos carregados */}
+        {files.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {files.map(f => (
+              <button
+                key={f.fileName}
+                onClick={() => setActiveFile(f.fileName)}
+                className={`flex items-center gap-1 text-xs px-3 py-1 rounded-full border transition-colors ${
+                  activeFile === f.fileName
+                    ? "border-green-400 text-green-400 bg-green-950/30"
+                    : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                }`}
+              >
+                {f.fileName}
+                <span
+                  onClick={e => { e.stopPropagation(); handleRemoveFile(f.fileName); }}
+                  className="ml-1 text-zinc-600 hover:text-red-400 transition-colors"
+                >
+                  ×
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Editor */}
-        <div className="rounded-lg overflow-hidden border border-zinc-800 mb-4">
-          <Editor
-            height={`${editorHeight}px`}
-            language={getLanguage()}
-            theme="vs-dark"
-            value={content}
-            onChange={v => setContent(v ?? "")}
-            options={{
-              fontSize: 12,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              lineNumbers: "on",
-              wordWrap: "on",
-            }}
-          />
-        </div>
+        {activeEntry && (
+          <div className="rounded-lg overflow-hidden border border-zinc-800 mb-4">
+            <div className="bg-zinc-900 px-3 py-1.5 text-xs text-zinc-500 border-b border-zinc-800">
+              {activeEntry.fileName}
+            </div>
+            <Editor
+              height={`${editorHeight}px`}
+              language={getLanguage(activeEntry.fileName)}
+              theme="vs-dark"
+              value={activeEntry.content}
+              onChange={v => updateActiveContent(v ?? "")}
+              options={{
+                fontSize: 12,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                lineNumbers: "on",
+                wordWrap: "on",
+              }}
+            />
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="flex gap-3 mb-6">
           <button
             onClick={handleScan}
-            disabled={loading || !content.trim()}
+            disabled={loading || files.length === 0}
             className="flex-1 py-3 bg-green-500 hover:bg-green-400 active:bg-green-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-black font-bold rounded-lg transition-colors text-sm sm:text-base"
           >
-            {loading ? "Analisando..." : "Analisar com Kraak"}
+            {loading ? "Analisando..." : `Analisar com Kraak${files.length > 1 ? ` (${files.length} arquivos)` : ""}`}
           </button>
           <button
             onClick={handleClear}
-            disabled={!content.trim()}
+            disabled={files.length === 0}
             className="py-3 px-5 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-700 text-white font-bold rounded-lg transition-colors border border-zinc-600 text-sm"
           >
             🗑️

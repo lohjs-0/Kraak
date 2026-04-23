@@ -8,4 +8,6 @@ public interface IRule
     string Title { get; }
 
     IEnumerable<Finding> Analyze(string filePath, string fileContent);
+    IEnumerable<Finding> AnalyzeAll(IReadOnlyList<(string FilePath, string Content)> files) =>
+        files.SelectMany(f => Analyze(f.FilePath, f.Content));
 }

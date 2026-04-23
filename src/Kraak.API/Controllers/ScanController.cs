@@ -33,15 +33,8 @@ public class ScanController : ControllerBase
         ["KRK017"] = "Valor alterado em relação ao snapshot aprovado. Execute 'kraak snapshot' para aprovar se for intencional.",
     };
 
-    [HttpPost]
-    public IActionResult Scan([FromBody] ScanRequest request)
+    private static Scanner BuildScanner()
     {
-        if (string.IsNullOrWhiteSpace(request.Content))
-            return BadRequest("Conteúdo não pode ser vazio.");
-
-        var tempPath = Path.Combine(Path.GetTempPath(), request.FileName);
-        System.IO.File.WriteAllText(tempPath, request.Content);
-
         var scanner = new Scanner();
 
         // AppSettings
@@ -67,27 +60,51 @@ public class ScanController : ControllerBase
         // Drift
         scanner.RegisterRule(new DriftRule());
 
-        var findings = scanner.Scan(tempPath).ToList();
-        System.IO.File.Delete(tempPath);
+        return scanner;
+    }
 
-        var score = CalculateScore(findings);
+    [HttpPost]
+    public IActionResult Scan([FromBody] ScanRequest[] requests)
+    {
+        if (requests.Length == 0)
+            return BadRequest("Nenhum arquivo enviado.");
 
-        var result = new
+        var tempFiles = requests.Select(r =>
         {
-            score,
-            findings = findings.Select(f => new
-            {
-                f.RuleId,
-                f.Title,
-                f.Description,
-                f.FilePath,
-                f.LineContent,
-                f.Severity,
-                Suggestion = _suggestions.TryGetValue(f.RuleId, out var s) ? s : ""
-            })
-        };
+            var path = Path.Combine(Path.GetTempPath(), r.FileName);
+            System.IO.File.WriteAllText(path, r.Content);
+            return (FilePath: path, Content: r.Content);
+        }).ToList();
 
-        return Ok(result);
+        try
+        {
+            var scanner = BuildScanner();
+            var findings = scanner.ScanAll(tempFiles).ToList();
+            var score = CalculateScore(findings);
+
+            var result = new
+            {
+                score,
+                findings = findings.Select(f => new
+                {
+                    f.RuleId,
+                    f.Title,
+                    f.Description,
+                    f.FilePath,
+                    f.LineContent,
+                    f.Severity,
+                    Suggestion = _suggestions.TryGetValue(f.RuleId, out var s) ? s : ""
+                })
+            };
+
+            return Ok(result);
+        }
+        finally
+        {
+            foreach (var (path, _) in tempFiles)
+                if (System.IO.File.Exists(path))
+                    System.IO.File.Delete(path);
+        }
     }
 
     [HttpPost("snapshot")]
@@ -98,7 +115,6 @@ public class ScanController : ControllerBase
 
         var tempPath = Path.Combine(Path.GetTempPath(), request.FileName);
         System.IO.File.WriteAllText(tempPath, request.Content);
-
         DriftDetector.SaveSnapshot(tempPath, request.Content);
         System.IO.File.Delete(tempPath);
 
