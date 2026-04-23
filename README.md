@@ -28,7 +28,8 @@
   <p>SAST Lite para arquivos de configuração</p>
 
   Kraak é um analisador estático de configurações que detecta problemas de segurança em arquivos como `appsettings.json`, `.env` e `docker-compose.yml`. Ele foi projetado para ajudar desenvolvedores a identificar credenciais expostas, configurações inseguras e boas práticas de segurança antes de publicar o código.
-  
+
+  > Documentação: https://kraak.vercel.app/docs
   
   </div>
 </p>
