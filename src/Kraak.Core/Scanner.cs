@@ -11,6 +11,7 @@ public class Scanner
     {
         _rules = new List<IRule>();
     }
+    
 
     public void RegisterRule(IRule rule)
     {

@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Kraak.Core;
 using Kraak.Core.Models;
+using Kraak.Core.Rules;
 using Kraak.Core.Rules.AppSettings;
 using Kraak.Core.Rules.DotEnv;
 using Kraak.Core.Rules.Docker;
-using Kraak.Core.Rules.AppSettings;
 
 namespace Kraak.API.Controllers;
 
@@ -23,6 +23,14 @@ public class ScanController : ControllerBase
         ["KRK007"] = "Use variáveis de ambiente do servidor ou um cofre como AWS Secrets Manager ou Azure Key Vault.",
         ["KRK008"] = "Use variáveis de ambiente do host ou Docker Secrets. Nunca coloque senhas direto no docker-compose.yml.",
         ["KRK009"] = "Esta string tem alta entropia e pode ser um secret. Mova para variáveis de ambiente se for uma chave ou senha.",
+        ["KRK010"] = "Remova 'privileged: true' e use 'cap_add' para conceder apenas as capabilities estritamente necessárias.",
+        ["KRK011"] = "Defina um usuário não-privilegiado no Dockerfile com 'USER appuser' ou use 'user: 1000:1000' no compose.",
+        ["KRK012"] = "Avalie se a capability é realmente necessária e remova ou substitua pelo menor privilégio possível.",
+        ["KRK013"] = "Remova 'network_mode: host' e use redes bridge nomeadas. Exponha apenas as portas necessárias via 'ports'.",
+        ["KRK014"] = "Remova a exposição da porta ao host e acesse o serviço via rede interna do Docker.",
+        ["KRK015"] = "Chave nova detectada fora do snapshot aprovado. Execute 'kraak snapshot' para aprovar se for intencional.",
+        ["KRK016"] = "Chave removida em relação ao snapshot aprovado. Execute 'kraak snapshot' para aprovar se for intencional.",
+        ["KRK017"] = "Valor alterado em relação ao snapshot aprovado. Execute 'kraak snapshot' para aprovar se for intencional.",
     };
 
     [HttpPost]
@@ -35,15 +43,29 @@ public class ScanController : ControllerBase
         System.IO.File.WriteAllText(tempPath, request.Content);
 
         var scanner = new Scanner();
+
+        // AppSettings
         scanner.RegisterRule(new ConnStringRule());
         scanner.RegisterRule(new AllowedHostsRule());
         scanner.RegisterRule(new SecretsRule());
-        scanner.RegisterRule(new EnvGitignoreRule());
         scanner.RegisterRule(new HttpsRule());
         scanner.RegisterRule(new DebugModeRule());
         scanner.RegisterRule(new EnvSecretsRule());
-        scanner.RegisterRule(new DockerRule());
         scanner.RegisterRule(new EntropyRule());
+
+        // DotEnv
+        scanner.RegisterRule(new EnvGitignoreRule());
+
+        // Docker
+        scanner.RegisterRule(new DockerRule());
+        scanner.RegisterRule(new PrivilegedRule());
+        scanner.RegisterRule(new RunAsRootRule());
+        scanner.RegisterRule(new CapAddRule());
+        scanner.RegisterRule(new HostNetworkRule());
+        scanner.RegisterRule(new PortExposureRule());
+
+        // Drift
+        scanner.RegisterRule(new DriftRule());
 
         var findings = scanner.Scan(tempPath).ToList();
         System.IO.File.Delete(tempPath);
@@ -68,20 +90,33 @@ public class ScanController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("snapshot")]
+    public IActionResult Snapshot([FromBody] ScanRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Content))
+            return BadRequest("Conteúdo não pode ser vazio.");
+
+        var tempPath = Path.Combine(Path.GetTempPath(), request.FileName);
+        System.IO.File.WriteAllText(tempPath, request.Content);
+
+        DriftDetector.SaveSnapshot(tempPath, request.Content);
+        System.IO.File.Delete(tempPath);
+
+        return Ok(new { message = $"Snapshot de '{request.FileName}' salvo com sucesso." });
+    }
+
     private static int CalculateScore(List<Finding> findings)
     {
         if (findings.Count == 0) return 100;
-        var penalty = 0;
-        foreach (var f in findings)
+
+        var penalty = findings.Sum(f => f.Severity switch
         {
-            penalty += f.Severity switch
-            {
-                Severity.Critical => 25,
-                Severity.Warning => 10,
-                Severity.Info => 2,
-                _ => 0
-            };
-        }
+            Severity.Critical => 25,
+            Severity.Warning  => 10,
+            Severity.Info     => 2,
+            _                 => 0
+        });
+
         return Math.Max(0, 100 - penalty);
     }
 }
