@@ -148,7 +148,6 @@ export default function Home() {
     return "plaintext";
   };
 
-  // Arquivos a enviar: os carregados + o manual se tiver conteúdo
   const allFilesToScan = (): FileEntry[] => {
     const loaded = files;
     if (manualContent.trim() && !files.find(f => f.fileName === manualFileName)) {
@@ -262,13 +261,6 @@ export default function Home() {
           <p className="text-zinc-600 text-xs mt-1 hidden sm:block">
             Você pode carregar múltiplos arquivos — ex: .env + .gitignore juntos
           </p>
-          <div className="flex flex-wrap gap-1 justify-center mt-2">
-            {ACCEPTED_FILES.map(f => (
-              <span key={f} className="text-zinc-600 text-[10px] bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
-                {f}
-              </span>
-            ))}
-          </div>
         </div>
 
         {/* Arquivos carregados */}
@@ -322,15 +314,25 @@ export default function Home() {
         {/* Editor manual — quando não há arquivo ativo */}
         {!activeEntry && (
           <div className="rounded-lg overflow-hidden border border-zinc-800 mb-4">
-            <div className="bg-zinc-900 px-3 py-1.5 border-b border-zinc-800 flex items-center gap-2">
-              <span className="text-zinc-500 text-xs shrink-0">Arquivo:</span>
-              <input
-                type="text"
-                value={manualFileName}
-                onChange={e => setManualFileName(e.target.value)}
-                placeholder=".env"
-                className="bg-transparent text-xs text-zinc-300 outline-none flex-1 min-w-0 placeholder-zinc-700"
-              />
+            <div className="bg-zinc-900 px-3 py-2 border-b border-zinc-800">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-zinc-500 text-xs shrink-0">Tipo de arquivo:</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {ACCEPTED_FILES.map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setManualFileName(f)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                      manualFileName === f
+                        ? "border-green-400 text-green-400 bg-green-950/30"
+                        : "border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
             </div>
             <Editor
               height={`${editorHeight}px`}
@@ -344,7 +346,6 @@ export default function Home() {
                 scrollBeyondLastLine: false,
                 lineNumbers: "on",
                 wordWrap: "on",
-                placeholder: "Cole ou digite o conteúdo do arquivo aqui...",
               }}
             />
           </div>
