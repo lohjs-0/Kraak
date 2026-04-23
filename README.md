@@ -20,7 +20,7 @@
 
 ---
 
-## 🦅 O que é o Kraak?
+## O que é o Kraak?
 
 <p align="left">
   <img src="/corvo2.png" align="right" width="220" style="margin-left: 20px; border-radius: 15px;">
