@@ -232,6 +232,11 @@ export default function Home() {
                 <Link href="/docs" className="text-zinc-500 text-xs sm:text-sm hover:text-green-400 transition-colors cursor-pointer">
                   Documentação →
                 </Link>
+
+                <Link href="/drift" className="text-zinc-500 text-xs sm:text-sm hover:text-green-400 transition-colors cursor-pointer">
+                  Drift →
+                </Link>
+                
               </div>
             </div>
           </div>
