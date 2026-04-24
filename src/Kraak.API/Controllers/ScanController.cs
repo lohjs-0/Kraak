@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Kraak.Core;
 using Kraak.Core.Models;
-using Kraak.Core.Rules;
 using Kraak.Core.Rules.AppSettings;
 using Kraak.Core.Rules.DotEnv;
 using Kraak.Core.Rules.Docker;
@@ -28,9 +27,6 @@ public class ScanController : ControllerBase
         ["KRK012"] = "Avalie se a capability é realmente necessária e remova ou substitua pelo menor privilégio possível.",
         ["KRK013"] = "Remova 'network_mode: host' e use redes bridge nomeadas. Exponha apenas as portas necessárias via 'ports'.",
         ["KRK014"] = "Remova a exposição da porta ao host e acesse o serviço via rede interna do Docker.",
-        ["KRK015"] = "Chave nova detectada fora do snapshot aprovado. Execute 'kraak snapshot' para aprovar se for intencional.",
-        ["KRK016"] = "Chave removida em relação ao snapshot aprovado. Execute 'kraak snapshot' para aprovar se for intencional.",
-        ["KRK017"] = "Valor alterado em relação ao snapshot aprovado. Execute 'kraak snapshot' para aprovar se for intencional.",
     };
 
     private static Scanner BuildScanner()
@@ -56,9 +52,6 @@ public class ScanController : ControllerBase
         scanner.RegisterRule(new CapAddRule());
         scanner.RegisterRule(new HostNetworkRule());
         scanner.RegisterRule(new PortExposureRule());
-
-        // Drift
-        scanner.RegisterRule(new DriftRule());
 
         return scanner;
     }
@@ -105,20 +98,6 @@ public class ScanController : ControllerBase
                 if (System.IO.File.Exists(path))
                     System.IO.File.Delete(path);
         }
-    }
-
-    [HttpPost("snapshot")]
-    public IActionResult Snapshot([FromBody] ScanRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Content))
-            return BadRequest("Conteúdo não pode ser vazio.");
-
-        var tempPath = Path.Combine(Path.GetTempPath(), request.FileName);
-        System.IO.File.WriteAllText(tempPath, request.Content);
-        DriftDetector.SaveSnapshot(tempPath, request.Content);
-        System.IO.File.Delete(tempPath);
-
-        return Ok(new { message = $"Snapshot de '{request.FileName}' salvo com sucesso." });
     }
 
     private static int CalculateScore(List<Finding> findings)
