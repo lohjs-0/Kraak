@@ -63,14 +63,15 @@ public class DriftDetector
     }
 
     private static Dictionary<string, string> BuildSnapshot(string filePath, string content)
+{
+    var name = Path.GetFileName(filePath).Replace("new_", "");
+    var ext = Path.GetExtension(name).ToLower();
+    return ext switch
     {
-        var ext = Path.GetExtension(filePath).ToLower();
-        return ext switch
-        {
-            ".json" => ParseJson(content),
-            ".yml" or ".yaml" => ParseYaml(content),
-            _ => ParseEnv(content)
-        };
+        ".json" => ParseJson(content),
+        ".yml" or ".yaml" => ParseYaml(content),
+        _ => ParseEnv(content)
+    };
     }
 
     private static Dictionary<string, string> ParseJson(string content)
