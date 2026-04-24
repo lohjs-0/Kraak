@@ -5,27 +5,13 @@ namespace Kraak.Core;
 
 public class DriftDetector
 {
-    private static readonly JsonSerializerOptions _opts = new() { WriteIndented = true };
-
-    public static void SaveSnapshot(string filePath, string fileContent)
+    public static IEnumerable<Finding> Compare(
+        string oldPath, string oldContent,
+        string newPath, string newContent)
     {
-        var snapshot = BuildSnapshot(filePath, fileContent);
-        var json = JsonSerializer.Serialize(snapshot, _opts);
-        File.WriteAllText(GetSnapshotPath(filePath), json);
-    }
+        var snapshot = BuildSnapshot(oldPath, oldContent);
+        var current = BuildSnapshot(newPath, newContent);
 
-    public static IEnumerable<Finding> DetectDrift(string filePath, string fileContent)
-    {
-        var snapshotPath = GetSnapshotPath(filePath);
-        if (!File.Exists(snapshotPath)) yield break;
-
-        var snapshotJson = File.ReadAllText(snapshotPath);
-        var snapshot = JsonSerializer.Deserialize<Dictionary<string, string>>(snapshotJson);
-        if (snapshot is null) yield break;
-
-        var current = BuildSnapshot(filePath, fileContent);
-
-        // Chaves adicionadas
         foreach (var key in current.Keys.Except(snapshot.Keys))
         {
             var isSensitive = IsSensitiveKey(key);
@@ -33,60 +19,57 @@ public class DriftDetector
             {
                 RuleId = "KRK015",
                 Title = "Drift: Chave Nova Detectada",
-                Description = $"A chave '{key}' não existia no snapshot aprovado.",
-                FilePath = filePath,
+                Description = $"A chave '{key}' não existia na versão antiga.",
+                FilePath = newPath,
                 LineContent = $"{key}: {TruncateValue(current[key])}",
                 Severity = isSensitive ? Severity.Critical : Severity.Warning,
                 Suggestion = isSensitive
-                    ? $"A chave '{key}' parece sensível e foi adicionada sem aprovação. Verifique se não é um secret exposto."
-                    : $"A chave '{key}' foi adicionada. Execute 'kraak snapshot' para aprovar se for intencional."
+                    ? $"'{key}' parece sensível e foi adicionada. Verifique se não é um secret exposto."
+                    : $"A chave '{key}' foi adicionada na versão nova."
             };
         }
 
-        // Chaves removidas
         foreach (var key in snapshot.Keys.Except(current.Keys))
         {
             yield return new Finding
             {
                 RuleId = "KRK016",
                 Title = "Drift: Chave Removida",
-                Description = $"A chave '{key}' existia no snapshot aprovado e foi removida.",
-                FilePath = filePath,
+                Description = $"A chave '{key}' existia na versão antiga e foi removida.",
+                FilePath = newPath,
                 LineContent = $"{key}: {TruncateValue(snapshot[key])}",
                 Severity = Severity.Warning,
-                Suggestion = $"A chave '{key}' foi removida. Execute 'kraak snapshot' para aprovar se for intencional."
+                Suggestion = $"A chave '{key}' foi removida. Verifique se foi intencional."
             };
         }
 
-        // Valores alterados
         foreach (var key in current.Keys.Intersect(snapshot.Keys))
         {
             if (current[key] == snapshot[key]) continue;
-
             var isSensitive = IsSensitiveKey(key);
             yield return new Finding
             {
                 RuleId = "KRK017",
                 Title = "Drift: Valor Alterado",
-                Description = $"O valor de '{key}' foi alterado em relação ao snapshot aprovado.",
-                FilePath = filePath,
+                Description = $"O valor de '{key}' foi alterado.",
+                FilePath = newPath,
                 LineContent = $"{key}: {TruncateValue(snapshot[key])} → {TruncateValue(current[key])}",
                 Severity = isSensitive ? Severity.Critical : Severity.Info,
                 Suggestion = isSensitive
-                    ? $"'{key}' parece uma chave sensível e seu valor mudou. Verifique se a alteração é legítima."
-                    : $"O valor de '{key}' mudou. Execute 'kraak snapshot' para aprovar se for intencional."
+                    ? $"'{key}' parece sensível e seu valor mudou. Verifique se é legítimo."
+                    : $"O valor de '{key}' mudou entre as versões."
             };
         }
     }
 
-    private static Dictionary<string, string> BuildSnapshot(string filePath, string fileContent)
+    private static Dictionary<string, string> BuildSnapshot(string filePath, string content)
     {
         var ext = Path.GetExtension(filePath).ToLower();
         return ext switch
         {
-            ".json" => ParseJson(fileContent),
-            ".yml" or ".yaml" => ParseYaml(fileContent),
-            _ => ParseEnv(fileContent)
+            ".json" => ParseJson(content),
+            ".yml" or ".yaml" => ParseYaml(content),
+            _ => ParseEnv(content)
         };
     }
 
@@ -144,9 +127,7 @@ public class DriftDetector
             if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith('#')) continue;
             var idx = trimmed.IndexOf('=');
             if (idx < 0) continue;
-            var key = trimmed[..idx].Trim();
-            var value = trimmed[(idx + 1)..].Trim();
-            result[key] = value;
+            result[trimmed[..idx].Trim()] = trimmed[(idx + 1)..].Trim();
         }
         return result;
     }
@@ -157,7 +138,4 @@ public class DriftDetector
 
     private static string TruncateValue(string value) =>
         value.Length > 20 ? value[..20] + "..." : value;
-
-    private static string GetSnapshotPath(string filePath) =>
-        Path.Combine(Path.GetDirectoryName(filePath) ?? ".", $".kraak.snapshot.{Path.GetFileName(filePath)}.json");
 }
