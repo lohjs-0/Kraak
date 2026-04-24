@@ -92,17 +92,65 @@ const rules = [
     id: "KRK008",
     title: "Secret Exposto no Docker Compose",
     severity: "CRITICAL",
-    description: "Detecta senhas, tokens e variáveis sensíveis hardcodadas em arquivos docker-compose.yml e docker-compose.prod.yml, como POSTGRES_PASSWORD, MYSQL_ROOT_PASSWORD e similares.",
-    example: `environment:\n  POSTGRES_PASSWORD: minhasenha123 ← PROBLEMA\n  MYSQL_ROOT_PASSWORD: root ← PROBLEMA`,
-    fix: `environment:\n  POSTGRES_PASSWORD: \${POSTGRES_PASSWORD} ← SEGURO\n\n# defina o valor no .env do host`,
+    description: "Detecta senhas e tokens hardcodados em docker-compose.yml. Suporta AWS, Stripe, GitHub, OpenAI e variáveis genéricas como POSTGRES_PASSWORD.",
+    example: `environment:\n  POSTGRES_PASSWORD: minhasenha123 ← PROBLEMA`,
+    fix: `environment:\n  POSTGRES_PASSWORD: \${POSTGRES_PASSWORD} ← SEGURO`,
   },
   {
     id: "KRK009",
-    title: "Porta Sensível Exposta no Docker",
+    title: "Possível Secret por Entropia",
     severity: "WARNING",
-    description: "Detecta quando portas de serviços internos como banco de dados (5432, 3306, 27017) estão expostas publicamente no docker-compose.",
-    example: `ports:\n  - "5432:5432" ← PROBLEMA (banco exposto)\n  - "27017:27017" ← PROBLEMA`,
-    fix: `# Remova o mapeamento de porta ou use rede interna:\nnetworks:\n  - internal`,
+    description: "Usa cálculo matemático de entropia para detectar strings que parecem senhas ou hashes, mesmo sem nomes óbvios como 'password'.",
+    example: `"Auth": {\n  "Token": "xK9#mP2$vL5nQ8wR3jY6" ← alta entropia\n}`,
+    fix: `# Mova para variável de ambiente se for um secret`,
+  },
+  {
+    id: "KRK010",
+    title: "Container em Modo Privilegiado",
+    severity: "CRITICAL",
+    description: "Detecta quando 'privileged: true' está configurado, concedendo acesso total ao host e eliminando o isolamento do container.",
+    example: `services:\n  app:\n    privileged: true ← PROBLEMA`,
+    fix: `# Remova privileged: true\n# Use cap_add apenas para capabilities necessárias`,
+  },
+  {
+    id: "KRK011",
+    title: "Container Rodando como Root",
+    severity: "CRITICAL",
+    description: "Detecta quando o container está configurado para rodar como usuário root, aumentando o risco em caso de escape.",
+    example: `services:\n  app:\n    user: root ← PROBLEMA`,
+    fix: `services:\n  app:\n    user: "1000:1000" ← SEGURO`,
+  },
+  {
+    id: "KRK012",
+    title: "Capabilities Perigosas",
+    severity: "WARNING",
+    description: "Detecta capabilities Linux perigosas adicionadas ao container como SYS_ADMIN, NET_ADMIN e outras que concedem privilégios excessivos.",
+    example: `cap_add:\n  - SYS_ADMIN ← PROBLEMA\n  - NET_ADMIN ← PROBLEMA`,
+    fix: `# Remova capabilities desnecessárias\n# Use apenas as estritamente necessárias`,
+  },
+  {
+    id: "KRK013",
+    title: "Container Usando Rede do Host",
+    severity: "CRITICAL",
+    description: "Detecta quando 'network_mode: host' está configurado, eliminando o isolamento de rede do container.",
+    example: `services:\n  app:\n    network_mode: host ← PROBLEMA`,
+    fix: `# Use redes bridge nomeadas\nnetworks:\n  - internal`,
+  },
+  {
+    id: "KRK014",
+    title: "Porta Sensível Exposta",
+    severity: "CRITICAL",
+    description: "Detecta quando portas de bancos de dados (5432, 3306, 27017, 6379) estão expostas publicamente via 0.0.0.0.",
+    example: `ports:\n  - "0.0.0.0:5432:5432" ← PROBLEMA`,
+    fix: `# Remova a exposição pública\n# Acesse via rede interna do Docker`,
+  },
+  {
+    id: "KRK015-017",
+    title: "Drift de Configuração",
+    severity: "WARNING / CRITICAL",
+    description: "Compara duas versões de um arquivo e detecta chaves adicionadas (KRK015), removidas (KRK016) ou com valores alterados (KRK017). Chaves sensíveis recebem severidade Critical.",
+    example: `# Versão antiga\n"AllowedHosts": "meusite.com"\n\n# Versão nova\n"AllowedHosts": "*" ← DRIFT DETECTADO`,
+    fix: `# Acesse a página Drift para comparar\n# duas versões do mesmo arquivo`,
   },
 ];
 
@@ -110,6 +158,7 @@ const SEVERITY_COLOR: Record<string, string> = {
   "CRITICAL": "text-red-500 border-red-500 bg-red-950",
   "WARNING": "text-yellow-400 border-yellow-400 bg-yellow-950",
   "WARNING / CRITICAL": "text-orange-400 border-orange-400 bg-orange-950",
+  "INFO": "text-cyan-400 border-cyan-400 bg-cyan-950",
 };
 
 export default function Docs() {
@@ -119,9 +168,14 @@ export default function Docs() {
 
         {/* Header */}
         <div className="mb-8 sm:mb-10">
-          <Link href="/" className="text-zinc-500 text-sm hover:text-green-400 transition-colors">
-            ← Voltar para o Kraak
-          </Link>
+          <div className="flex flex-wrap gap-4">
+            <Link href="/" className="text-zinc-500 text-sm hover:text-green-400 transition-colors">
+              ← Analisador
+            </Link>
+            <Link href="/drift" className="text-zinc-500 text-sm hover:text-green-400 transition-colors">
+              Drift →
+            </Link>
+          </div>
           <div className="flex items-center gap-3 mt-4">
             <CrowImage size={48} />
             <h1 className="text-2xl sm:text-3xl font-bold text-green-400">Documentação</h1>
@@ -156,8 +210,10 @@ export default function Docs() {
               ".env",
               ".env.local",
               ".env.production",
+              ".env.development",
               "docker-compose.yml",
               "docker-compose.prod.yml",
+              ".gitignore",
             ].map(f => (
               <span key={f} className="bg-zinc-800 text-green-400 text-xs px-3 py-1 rounded border border-zinc-700">
                 {f}
@@ -187,6 +243,36 @@ export default function Docs() {
               <span className="text-zinc-400 text-sm">-2 pontos por ocorrência</span>
             </div>
           </div>
+        </div>
+
+        {/* Drift Detector */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 sm:p-6 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <CrowImage size={24} />
+            <h2 className="text-lg font-bold text-white">Drift Detector</h2>
+            <span className="text-zinc-600 text-xs border border-zinc-700 px-2 py-0.5 rounded">BETA</span>
+          </div>
+          <p className="text-zinc-400 text-sm leading-relaxed mb-3">
+            O Drift Detector compara duas versões de um arquivo de configuração e detecta o que mudou entre elas.
+            É útil para revisar mudanças antes de um deploy ou para auditar alterações em produção.
+          </p>
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-green-400">KRK015</span>
+              <span className="text-zinc-400">— Chave nova adicionada</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-red-400">KRK016</span>
+              <span className="text-zinc-400">— Chave removida</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400">KRK017</span>
+              <span className="text-zinc-400">— Valor alterado</span>
+            </div>
+          </div>
+          <Link href="/drift" className="inline-block mt-4 text-xs text-green-400 hover:text-green-300 transition-colors">
+            Acessar o Drift Detector →
+          </Link>
         </div>
 
         {/* Regras */}
