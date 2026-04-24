@@ -311,28 +311,20 @@ export default function Home() {
           </div>
         )}
 
-        {/* Editor manual — quando não há arquivo ativo */}
+        {/* Editor manual */}
         {!activeEntry && (
           <div className="rounded-lg overflow-hidden border border-zinc-800 mb-4">
-            <div className="bg-zinc-900 px-3 py-2 border-b border-zinc-800">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-zinc-500 text-xs shrink-0">Tipo de arquivo:</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
+            <div className="bg-zinc-900 px-3 py-2 border-b border-zinc-800 flex items-center gap-2">
+              <span className="text-zinc-500 text-xs shrink-0">Tipo de arquivo:</span>
+              <select
+                value={manualFileName}
+                onChange={e => setManualFileName(e.target.value)}
+                className="bg-zinc-800 border border-zinc-700 text-white text-xs rounded px-2 py-1 cursor-pointer hover:border-zinc-500 transition-colors"
+              >
                 {ACCEPTED_FILES.map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setManualFileName(f)}
-                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
-                      manualFileName === f
-                        ? "border-green-400 text-green-400 bg-green-950/30"
-                        : "border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
-                    }`}
-                  >
-                    {f}
-                  </button>
+                  <option key={f} value={f}>{f}</option>
                 ))}
-              </div>
+              </select>
             </div>
             <Editor
               height={`${editorHeight}px`}
@@ -450,4 +442,4 @@ export default function Home() {
       </div>
     </main>
   );
-}
+                  }
