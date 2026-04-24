@@ -14,7 +14,7 @@ public class DriftController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.OldContent) || string.IsNullOrWhiteSpace(request.NewContent))
             return BadRequest("Conteúdo não pode ser vazio.");
 
-        var oldPath = Path.Combine(Path.GetTempPath(), $"old_{request.FileName}");
+        var oldPath = Path.Combine(Path.GetTempPath(), request.FileName);
         var newPath = Path.Combine(Path.GetTempPath(), $"new_{request.FileName}");
 
         System.IO.File.WriteAllText(oldPath, request.OldContent);
