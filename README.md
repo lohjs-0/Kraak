@@ -1,22 +1,4 @@
-<div align="center">
 
-```
-██╗  ██╗██████╗  █████╗  █████╗ ██╗  ██╗
-██║ ██╔╝██╔══██╗██╔══██╗██╔══██╗██║ ██╔╝
-█████╔╝ ██████╔╝███████║███████║█████╔╝ 
-██╔═██╗ ██╔══██╗██╔══██║██╔══██║██╔═██╗ 
-██║  ██╗██║  ██║██║  ██║██║  ██║██║  ██╗
-╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
-```
-
-**Analisador estático de configurações para quem não quer vazar segredo no GitHub.**
-
-[![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com)
-[![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![License](https://img.shields.io/badge/Licença-MIT-green?style=for-the-badge)](#%EF%B8%8F-licença)
-
-</div>
 
 ---
 
